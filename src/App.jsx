@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef} from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import "./App.css"
 
 function App() {
   const startDate = new Date("2006-12-02T07:51:36Z")
   const [seconds, setSeconds] = useState(0)
+  const [timeUnit, setTimeUnit] = useState("seconds")
 
   useEffect(() => {
     const updateSeconds = () => {
@@ -19,11 +20,53 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
+  const timeUnits = [
+  "seconds",
+  "minutes",
+  "hours",
+  "days",
+  "months",
+  "years"
+]
+
+const scrollRef = useRef(null)
+
+const handleScroll = () => {
+  const container = scrollRef.current
+  if (!container) return
+
+  const center = container.scrollLeft + container.offsetWidth / 2
+
+  const children = Array.from(container.children)
+
+  let closest = null
+  let closestDistance = Infinity
+
+  children.forEach((child, index) => {
+    const childCenter =
+      child.offsetLeft + child.offsetWidth / 2
+
+    const distance = Math.abs(center - childCenter)
+
+    if (distance < closestDistance) {
+      closestDistance = distance
+      closest = timeUnits[index]
+    }
+  })
+
+  if (closest && closest !== timeUnit) {
+    setTimeUnit(closest)
+  }
+}
+
   return (
     <div className="w-screen h-screen overflow-x-scroll overflow-y-hidden snap-x snap-mandatory flex scroll-smooth">
 
       {/* SCREEN 1 — RUNTIME */}
-      <div className="snap-center shrink-0 w-screen h-screen flex items-center justify-center bg-[#0a0f14] px-6">
+      <div className="snap-center shrink-0 w-screen h-screen flex flex-col items-center justify-between bg-[#0a0f14] px-6">
+        
+        <div className="w-full h-10"/>
+        
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -39,7 +82,7 @@ function App() {
             className="text-5xl font-bold tracking-widest text-cyan-400 
             drop-shadow-[0_0_12px_rgba(0,255,255,0.5)]"
           >
-            {seconds.toLocaleString()}
+            {convertTime(seconds, timeUnit)}
           </motion.h1>
 
           <p className="mt-4 text-xs uppercase tracking-[0.3em] text-cyan-500/50">
@@ -50,6 +93,34 @@ function App() {
             Time is processing. Optimize your output.
           </p>
         </motion.div>
+        
+<div className="w-full flex justify-center mb-6">
+  <div className="">
+    
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex gap-100 overflow-x-auto px-100 py-4
+          max-w-xl snap-x snap-mandatory
+          scrollbar-none relative"
+        >
+          {timeUnits.map((unit, index) => (
+            <div
+              key={unit}
+              className={`snap-center shrink-0 text-xs uppercase tracking-widest
+              transition-all duration-300
+              ${
+                timeUnit === unit
+                  ? "text-cyan-400 scale-125"
+                  : "text-cyan-500/40 scale-90"
+              }`}
+            >
+              {unit}
+            </div>
+          ))}
+        </div>
+      </div>
+      </div>
       </div>
 
       {/* SCREEN 2 */}
@@ -113,57 +184,108 @@ function ResolutionDashboard() {
     setResolutions(updated)
   }
 
-  return (
-    <div className="w-full max-w-md h-[90vh] flex flex-col justify-between">
+  const [yearProgress, setYearProgress] = useState(0)
 
-      <div className="space-y-4 mt-4">
+useEffect(() => {
+  const updateYearProgress = () => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), 0, 1)
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+
+    const total = end - start
+    const elapsed = now - start
+
+    const percent = (elapsed / total) * 100
+    setYearProgress(percent)
+  }
+
+  updateYearProgress()
+  const interval = setInterval(updateYearProgress, 60000) 
+  // updates every minute
+
+  return () => clearInterval(interval)
+}, [])
+
+const averageProgress =
+  resolutions.reduce((acc, r) => acc + r.progress, 0) /
+  resolutions.length
+
+return (
+  <div className="w-full max-w-6xl h-[90vh] mx-auto flex flex-col justify-between">
+
+    {/* Main Layout */}
+    <div className="flex-1 flex items-center justify-between">
+
+      {/* LEFT YEAR BAR */}
+      <div className="flex flex-col items-center justify-center w-1/4">
+
+        <div className="relative h-[250px] w-4 rounded-full bg-[#0b141c] overflow-hidden">
+
+          <motion.div
+            animate={{ opacity: [0.15, 0.3, 0.15] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="absolute inset-0 bg-purple-500/10"
+          />
+
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: `${averageProgress}%` }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="absolute bottom-0 left-0 w-full rounded-full
+            bg-gradient-to-t from-red-600 via-purple-400 to-orange-200
+            shadow-[0_0_25px_rgba(0,255,255,0.8)]"
+          />
+
+          <motion.div
+            animate={{ y: ["200%", "-100%"] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+            className="absolute w-full h-20 
+            bg-gradient-to-t from-transparent via-purple-400/10 to-transparent"
+          />
+        </div>
+
+        <div className="text-3xl font-semibold tracking-widest mt-4 
+        text-purple-400 drop-shadow-[0_0_20px_rgba(200,155,0,0.7]">
+          {averageProgress.toFixed(0)}%
+        </div>
+
+        <div className="text-sm font-light tracking-wide 
+        text-orange-400/20 drop-shadow-[0_0_20px_rgba(200,155,0,0.2)]">
+          Achieved
+        </div>
+
+      </div>
+
+
+      {/* CENTER RESOLUTIONS */}
+      <div className="w-2/4 flex flex-col space-y-2">
 
         {resolutions.map((res, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 40, scale: 0.96 }}
-            whileInView={{ opacity: 1, y: 0, scale: 1 }}
-            viewport={{ once: false, amount: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{
               duration: 0.6,
               ease: [0.22, 1, 0.36, 1],
               delay: index * 0.15,
             }}
             className="relative bg-[#0f1720] border border-purple-500/40 
-            rounded-xl px-4 py-2 
+            rounded-xl px-6 py-4
             shadow-[0_0_40px_rgba(168,85,247,0.25)] overflow-hidden"
           >
 
-            {/* Neon Sweep */}
-            <motion.div
-              initial={{ x: "-100%" }}
-              whileInView={{ x: "200%" }}
-              viewport={{ once: false }}
-              transition={{
-                duration: 1.2,
-                ease: "easeInOut",
-                delay: 0.4 + index * 0.2,
-              }}
-              className="absolute top-0 left-0 w-1/2 h-full 
-              bg-gradient-to-r from-transparent via-purple-400/20 to-transparent"
-            />
-
-            {/* Title + Priority */}
-            <div className="flex justify-between items-center relative z-10">
-              <div className="w-fit">
-                <h2 className="text-[20px] font-bold text-white tracking-wide text-left">
-                  {res.title}
-                </h2>
-              </div>
-              <span className="text-[20px] text-purple-300 tracking-widest">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white tracking-wide">
+                {res.title}
+              </h2>
+              <span className="text-purple-300 tracking-widest">
                 {res.priority}
               </span>
             </div>
 
-            {/* Progress Section */}
-            <div className="relative mt-3 flex justify-between items-center z-10">
+            <div className="mt-4 flex items-center gap-4">
 
-              {/* Slider */}
               <input
                 type="range"
                 min="0"
@@ -172,35 +294,23 @@ function ResolutionDashboard() {
                 onChange={(e) =>
                   updateProgress(index, Number(e.target.value))
                 }
-                className="max-w-xl appearance-none h-5 rounded-full 
-                bg-purple-900 outline-none"
+                className="flex-1 appearance-none h-2 rounded-full bg-purple-900"
               />
 
-              {/* Glowing Fill */}
-              <div className="w-[200px] h-5 rounded-full bg-purple-900 overflow-hidden">
+              <div className="w-40 h-2 rounded-full bg-purple-900 overflow-hidden">
                 <motion.div
-                  className="h-5 rounded-full
+                  className="h-2 rounded-full
                   bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600
                   shadow-[0_0_20px_rgba(168,85,247,0.9)]"
                   animate={{ width: `${res.progress}%` }}
                   transition={{ duration: 0.3 }}
-                  style={{ width: `${res.progress}%` }}
                 />
               </div>
 
-              {/* Animated Percentage */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.6 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{
-                  duration: 0.5,
-                  delay: 0.4 + index * 0.2,
-                }}
-                className="text-right text-[20px] text-purple-300"
-              >
+              <div className="text-purple-300 w-12 text-right">
                 {res.progress}%
-              </motion.div>
+              </div>
+              
 
             </div>
           </motion.div>
@@ -208,12 +318,55 @@ function ResolutionDashboard() {
 
       </div>
 
-      <div className="text-center text-xs text-gray-500 mt-3">
-        SYSTEM STATUS: ACTIVE
+
+      {/* RIGHT YEAR BAR */}
+      <div className="flex flex-col items-center justify-center w-1/4">
+
+        <div className="relative h-[250px] w-4 rounded-full bg-[#0b141c] overflow-hidden">
+
+          <motion.div
+            animate={{ opacity: [0.15, 0.3, 0.15] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="absolute inset-0 bg-orange-500/10"
+          />
+
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: `${yearProgress}%` }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="absolute bottom-0 left-0 w-full rounded-full
+            bg-gradient-to-t from-red-600 via-purple-400 to-orange-200
+            shadow-[0_0_25px_rgba(0,255,255,0.8)]"
+          />
+
+          <motion.div
+            animate={{ y: ["200%", "-100%"] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+            className="absolute w-full h-20 
+            bg-gradient-to-t from-transparent via-purple-400/10 to-transparent"
+          />
+        </div>
+
+        <div className="text-3xl font-semibold tracking-widest mt-4 
+        text-purple-400 drop-shadow-[0_0_20px_rgba(200,155,0,0.2)]">
+          {yearProgress.toFixed(0)}%
+        </div>
+
+        <div className="text-sm font-light tracking-wide
+        text-orange-400/20 drop-shadow-[0_0_20px_rgba(200,155,0,0.2)]">
+          Year Spent
+        </div>
+
       </div>
 
     </div>
-  )
+
+    <div className="text-center text-xs text-gray-500 mt-4">
+      SYSTEM STATUS: ACTIVE
+    </div>
+
+  </div>
+)
 }
 
 function CountdownTarget() {
@@ -428,7 +581,7 @@ const money = transactions.reduce((acc, tx) =>
 
 
   return (
-    <div className="w-full h-[90vh] bg-[#0b0f14] text-white flex flex-col px-6 py-6 overflow-hidden">
+    <div className="w-full h-screen bg-[#0b0f14] text-white flex flex-col px-6 py-6 overflow-hidden">
 
       {/* HEADER */}
       <div className="flex justify-between items-start">
@@ -664,4 +817,32 @@ function ProgressBar({ label, value, setValue }) {
       />
     </div>
   )
+}
+
+function convertTime(seconds, unit) {
+  switch (unit) {
+    case "milliseconds":
+      return (seconds * 1000).toLocaleString()
+
+    case "seconds":
+      return seconds.toLocaleString()
+
+    case "minutes":
+      return (seconds / 60).toFixed(2)
+
+    case "hours":
+      return (seconds / 3600).toFixed(2)
+
+    case "days":
+      return (seconds / 86400).toFixed(2)
+
+    case "months":
+      return (seconds / (30 * 86400)).toFixed(2)
+
+    case "years":
+      return (seconds / (365 * 86400)).toFixed(2)
+
+    default:
+      return seconds
+  }
 }
